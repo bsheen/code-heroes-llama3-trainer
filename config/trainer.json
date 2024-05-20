@@ -1,0 +1,8 @@
+{
+    "lambda-cloud-ssh-identity-file":"",
+    "lambda-cloud-api-key": "",
+    "lambda-cloud-ssh-key-name": "",
+    "lambda-cloud-instance-name-prefix": "",
+    "weights-and-biases-api-key":"",
+    "hugging-face-access-token":""
+}

@@ -1,0 +1,35 @@
+{
+  "name": "code-heroes-llama3-trainer",
+  "version": "1.0.0",
+  "description": "The [Code Heroes](https://www.codeheroes.com.au/) Llama3 Trainer aims to provide a CLI interface to orchestrate the fine-tuning of open source AI models, such as Llama3, using 3rd party services, such as [Lambda Cloud](https://lambdalabs.com/), [Hugging Face](https://huggingface.co/) and [Weights & Biases](https://wandb.ai).",
+  "main": "bin/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "llama3",
+    "hugging face",
+    "lambda labs",
+    "lambda cloud",
+    "weights & biases",
+    "weights and biases",
+    "wandb",
+    "w&b"
+  ],
+  "author": "Brendt Sheen (https://www.codeheroes.com.au)",
+  "license": "MIT",
+  "bin": {
+    "trainer": "./bin/index.js"
+  },
+  "type": "module",
+  "dependencies": {
+    "boxen": "^7.1.1",
+    "chalk": "^5.3.0",
+    "debug": "^4.3.4",
+    "json-colorizer": "^3.0.1",
+    "lambda-cloud-node-api": "^1.0.1",
+    "node-persist": "^4.0.1",
+    "ora": "^8.0.1",
+    "yargs": "^17.7.2"
+  }
+}
