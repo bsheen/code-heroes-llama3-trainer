@@ -7,17 +7,10 @@ from trl import SFTTrainer
 
 max_seq_length = 2048 # Supports RoPE Scaling interally, so choose any!
 
-# 4bit pre quantized models we support for 4x faster downloading + no OOMs.
+# 4bit pre quantized models
 fourbit_models = [
-    "unsloth/mistral-7b-bnb-4bit",
-    "unsloth/mistral-7b-instruct-v0.2-bnb-4bit",
-    "unsloth/llama-2-7b-bnb-4bit",
-    "unsloth/gemma-7b-bnb-4bit",
-    "unsloth/gemma-7b-it-bnb-4bit", # Instruct version of Gemma 7b
-    "unsloth/gemma-2b-bnb-4bit",
-    "unsloth/gemma-2b-it-bnb-4bit", # Instruct version of Gemma 2b
-    "unsloth/llama-3-8b-bnb-4bit", # [NEW] 15 Trillion token Llama-3
-    "unsloth/Phi-3-mini-4k-instruct-bnb-4bit",
+    "unsloth/llama-3-8b-bnb-4bit", 
+    "unsloth/llama-3-8b-Instruct-bnb-4bit"
 ] # More models at https://huggingface.co/unsloth
 
 model, tokenizer = FastLanguageModel.from_pretrained(
@@ -87,6 +80,7 @@ trainer = SFTTrainer(
         bf16 = torch.cuda.is_bf16_supported(),
         logging_steps = 1,
         output_dir = "outputs",
+        run_name = os.environ['WANDB_NAME'],
         optim = "adamw_8bit",
         seed = 3407,
         save_strategy = "steps",
