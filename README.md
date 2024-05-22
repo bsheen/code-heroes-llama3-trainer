@@ -64,7 +64,7 @@ The following 3rd party services and applications are used to:
 - [Enchanted LLM](https://apps.apple.com/us/app/enchanted-llm/id6474268307) provides a user interface, similar to ChatGPT, facilitates chat with models served by Ollama.
 
 ## Training
-The training script (train.py) is based on the [Unsloth](https://unsloth.ai/) as described in their [documentation](https://github.com/unslothai/unsloth?tab=readme-ov-file#-documentation).
+The training script ([train.py](https://github.com/bsheen/code-heroes-llama3-trainer/blob/840f7cb467bd3084004f6a0a82fa17b82101607d/training/train.py)) is based on the [Unsloth](https://unsloth.ai/) as described in their [documentation](https://github.com/unslothai/unsloth?tab=readme-ov-file#-documentation).
 
 Prior to using Unsloth, frequent out of memory exceptions occured as training quickly used up the available GPU memory. The Unsloth approach provides a pathway to training confidently on limited GPU memory via 4bit quantization. 
 

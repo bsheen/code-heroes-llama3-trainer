@@ -6,7 +6,7 @@ import boxen from 'boxen';
 import { colorize } from 'json-colorizer';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
-import child_process from 'child_process';
+import spawn from 'await-spawn';
 import { LambdaCloudAPI } from 'lambda-cloud-node-api';
 import persist from 'node-persist';
 import ora from 'ora';
@@ -167,15 +167,16 @@ const argv = yargs(hideBin(process.argv))
     .parse();
 
 async function run(argv){
-    await launch(argv);
-    await transfer(argv);
-    await config(argv);
-    await install(argv);
-    await authenticate(argv);
-    await train(argv);
-
-    if(argv.terminate) 
-        await terminate(argv);
+    await launch(argv)
+    .then(() => transfer(argv))
+    .then(() => config(argv))
+    .then(() => install(argv))
+    .then(() => authenticate(argv))
+    .then(() => train(argv))
+    .then(() => {if(argv.terminate == true) terminate(argv)})
+    .catch((error) => {
+        debug(error);
+    });
 };
 
 async function launch(argv){
@@ -186,8 +187,8 @@ async function launch(argv){
         "Launching:\n" +
         "- type: " + chalk.green(argv.lcInstanceType) + '\n' +
         "- region: " + chalk.green(argv.lcRegion) + '\n' +
-        "- name: " + chalk.green(instanceName), 
-        "- auto-shutdown: " + chalk.green(argv.terminate ? 'Yes' : 'No'),
+        "- name: " + chalk.green(instanceName) + '\n' + 
+        "- auto-shutdown: " + chalk.green(argv.terminate ? 'yes' : 'no'),
         {padding: 1, borderColor: 'green', dimBorder: true}));
 
     const client = new LambdaCloudAPI({ apiKey: argv.lambdaCloudApiKey });
@@ -204,9 +205,16 @@ async function launch(argv){
         console.log('Launched: ' + chalk.green(await storage.getItem('instanceId')));
         await getInstanceIP(instanceId);
         debug('Host IP: ' + chalk.green(await storage.getItem('host')));
+        return argv;
     })
-    .catch((error) => {
-        console.log(error);
+    .catch((e) => {
+        debug(e);
+        const error = e['error'];
+        let message = error.message;
+        if(error.suggestion)
+            message += '\n' + error.suggestion;
+        console.log(chalk.red('Error:\n' + message));
+        throw e;
     });
 };
 
@@ -215,8 +223,9 @@ async function getInstanceIP(instanceId){
     debug('Instance Id: ' + chalk.green(instanceId));
     const client = new LambdaCloudAPI({ apiKey: argv.lambdaCloudApiKey });
     const instance = await client.getRunningInstance(instanceId)
-    .catch((error) => {
-        console.log(error);
+    .catch((e) => {
+        debug(e);
+        throw e;
     });
 
     if(spinner.isSpinning == false && instance.status != 'terminating'){
@@ -224,15 +233,16 @@ async function getInstanceIP(instanceId){
         spinner.start();
     }
 
-    if("ip" in instance){
-        //console.log('Instance:\n' + colorize(JSON.stringify(instance, null, 4)));
+    if('ip' in instance){
+        debug('Instance:\n' + colorize(JSON.stringify(instance, null, 4)));
         await storage.setItem('host', instance['ip']);
-        //console.log('IP: ' + colorize(await storage.getItem('host')));
+        debug('IP: ' + await storage.getItem('host'));
     }
 
+    debug(instance.status);
     if(instance.status == 'active'){ 
         spinner.succeed('running');
-        return true;
+        return;
     } else {
         spinner.text = instance.status + '...';
         await sleep(2000);
@@ -246,11 +256,20 @@ async function transfer(argv){
         "Transfering files:\n" +
         "- to host: " + chalk.green(ip),
         {padding: 1, borderColor: 'green', dimBorder: true}));
-    child_process.spawnSync(
+    
+    const process = spawn(
         'sh', 
         ['./training/file_transfer.sh'], 
         { stdio: 'inherit', shell: true, env: { HOST: ip, SSH_PUB_KEY: argv.lcSshIdentityFile } }
     );
+    process.child.on('close', (code) => {
+        return argv;
+    });
+    process.child.on('error', (error) => {
+        debug(error);
+        throw error;
+    });
+    await process;
 };
 
 async function config(argv){
@@ -259,11 +278,20 @@ async function config(argv){
         "Configuring:\n" +
         "- host: " + chalk.green(ip),
         {padding: 1, borderColor: 'green', dimBorder: true}));
-    child_process.spawnSync(
+        
+    const process = spawn(
         'ssh', 
         ['-i ' + argv.lcSshIdentityFile, '-o StrictHostKeyChecking=no', 'ubuntu@' + ip, 'sudo ./config.sh'], 
         { stdio: 'inherit', shell: true }
     );
+    process.child.on('close', () => {
+        return argv;
+    });
+    process.child.on('error', (error) => {
+        debug(error);
+        throw error;
+    });
+    await process;
 };
 
 async function install(argv){
@@ -272,11 +300,20 @@ async function install(argv){
         "Installing dependancies:\n" +
         "- on host: " + chalk.green(ip),
         {padding: 1, borderColor: 'green', dimBorder: true}));
-    child_process.spawnSync(
+    
+    const process = spawn(
         'ssh', 
         ['-i ' + argv.lcSshIdentityFile, '-o StrictHostKeyChecking=no', 'ubuntu@' + ip, './install.sh'], 
         { stdio: 'inherit', shell: true }
     );
+    process.child.on('close', (code) => {
+        return argv;
+    });
+    process.child.on('error', (error) => {
+        debug(error);
+        throw error;
+    });
+    await process;
 };
 
 async function authenticate(argv){
@@ -286,11 +323,20 @@ async function authenticate(argv){
         "- host: " + chalk.green(ip) + "\n" +
         "with HF and W&B.",
         {padding: 1, borderColor: 'green', dimBorder: true}));
-    child_process.spawnSync(
+    
+    const process = spawn(
         'ssh', 
-        ['-i ' + argv.lcSshIdentityFile, '-o StrictHostKeyChecking=no', '-o SendEnv=HF_USER_ACCESS_TOKEN', '-o SendEnv=WANDB_API_KEY', 'ubuntu@' + ip, './authenticate.sh'], 
-        { stdio: 'inherit', shell: true, env: { HF_USER_ACCESS_TOKEN:argv.hfAccessToken, WANDB_API_KEY:argv.wabApiKey  } }
+        ['-i ' + argv.lcSshIdentityFile, '-o StrictHostKeyChecking=no', '-o SendEnv=HF_TOKEN', '-o SendEnv=WANDB_API_KEY', 'ubuntu@' + ip, './authenticate.sh'], 
+        { stdio: 'inherit', shell: true, env: { HF_TOKEN:argv.hfAccessToken, WANDB_API_KEY:argv.wandbApiKey  } }
     );
+    process.child.on('close', (code) => {
+        return argv;
+    });
+    process.child.on('error', (error) => {
+        debug(error);
+        throw error;
+    });
+    await process;
 };
 
 async function train(argv){
@@ -305,11 +351,20 @@ async function train(argv){
         "- push to model: " + chalk.green(argv.hfAccount + "/" + argv.hfOutputModel) + "\n" +
         "- will shutdown on completion: " + chalk.green(argv.terminate ? 'Yes' : 'No'), 
         {padding: 1, borderColor: 'green', dimBorder: true}));
-    child_process.spawnSync(
+    
+    const process = spawn(
         'ssh', 
         ['-i ' + argv.lcSshIdentityFile, '-o StrictHostKeyChecking=no', '-o SendEnv=HF_TOKEN', '-o SendEnv=HF_ACCOUNT', '-o SendEnv=HF_DATASET', '-o SendEnv=HF_INPUT_MODEL', '-o SendEnv=HF_OUTPUT_MODEL', '-o SendEnv=WANDB_PROJECT', '-o SendEnv=WANDB_NAME', 'ubuntu@' + ip, 'python ./train.py'], 
         { stdio: 'inherit', shell: true, env: { HF_TOKEN: argv.hfAccessToken, HF_ACCOUNT: argv.hfAccount, HF_DATASET: argv.hfDataset, HF_INPUT_MODEL: argv.hfInputModel, HF_OUTPUT_MODEL: argv.hfOutputModel, WANDB_PROJECT: argv.hfOutputModel, WANDB_NAME: instanceName } }
-    );
+    )
+    process.child.on('close', (code) => {
+        return argv;
+    });
+    process.child.on('error', (error) => {
+        debug(error);
+        throw error;
+    });
+    await process;
 };
 
 async function terminate(argv){
@@ -328,7 +383,11 @@ async function terminate(argv){
         const instanceId = terminatedInstances['terminated_instances'][0].id;
         console.log('Terminated: ' + chalk.green(instanceId));
     })
-    .catch((error) => {
-        console.log(error);
+    .catch((e) => {
+        const error = e['error'];
+        console.log(chalk.red('ERROR:\n' +
+            error.message + '\n' +
+            error.suggestion));
+        throw error;
     });
 };
